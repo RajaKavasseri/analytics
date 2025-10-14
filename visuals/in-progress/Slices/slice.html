@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Slice Distribution</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #86ac91;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        svg {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            fill: white;
+            text-anchor: middle;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <svg width="1000" height="800"></svg>
+
+    <script>
+        const svg = d3.select("svg");
+        const width = +svg.attr("width");
+        const height = +svg.attr("height");
+
+        // Unified scale for both court and shots
+        const xScale = d3.scaleLinear().domain([-350, 350]).range([0, width]);
+        const yScale = d3.scaleLinear().domain([-150, 600]).range([height, 0]);
+
+        // Arrowhead marker
+        svg.append("defs")
+            .append("marker")
+            .attr("id", "arrowhead")
+            .attr("viewBox", "0 0 8 8")
+            .attr("refX", 4)
+            .attr("refY", 4)
+            .attr("markerWidth", 4)
+            .attr("markerHeight", 4)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M 0 0 L 8 4 L 0 8 Z")
+            .attr("fill", "black");
+
+        // Tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Load data and draw everything
+        d3.json("../../../../data/json/slice_place.json").then(function(data) {
+            // Court title
+            svg.append("text")
+                .attr("class", "title")
+                .attr("x", width / 2)
+                .attr("y", yScale(-60))
+                .text("Slice Placement");
+
+            // Court background
+            svg.append("rect")
+                .attr("x", xScale(-210))
+                .attr("y", yScale(455))
+                .attr("width", xScale(210) - xScale(-210))
+                .attr("height", yScale(-25) - yScale(455))
+                .attr("fill", "#6092ce");
+
+            // Court lines
+            const courtLines = [
+                { x1: -240, y1: 0, x2: 240, y2: 0, width: 7 },
+                { x1: -210, y1: -25, x2: -210, y2: 455 },
+                { x1: 210,  y1: -25, x2: 210,  y2: 455 },
+                { x1: -210, y1: 455, x2: 210, y2: 455 },
+                { x1: 157.5, y1: -25, x2: 157.5, y2: 455 },
+                { x1: -157.5, y1: -25, x2: -157.5, y2: 455 },
+                { x1: -157.5, y1: 245, x2: 157.5, y2: 245 },
+                { x1: 0, y1: -25, x2: 0, y2: 245 },
+                { x1: 0, y1: 445, x2: 0, y2: 455 }
+            ];
+
+            svg.selectAll(".court-line")
+                .data(courtLines)
+                .enter()
+                .append("line")
+                .attr("x1", d => xScale(d.x1))
+                .attr("y1", d => yScale(d.y1))
+                .attr("x2", d => xScale(d.x2))
+                .attr("y2", d => yScale(d.y2))
+                .attr("stroke", "white")
+                .attr("stroke-width", d => d.width || 4);
+           
+            // Arrow constants
+            const fixedLength = 20;
+
+            // Draw trajectories
+            svg.selectAll(".trajectory-line-outline")
+                .data(data)
+                .enter()
+                .append("line")
+                .attr("class", "trajectory-line-outline")
+                .attr("x1", d => xScale(d.shotLocationX))
+                .attr("y1", d => yScale(d.shotLocationY))
+                .attr("x2", d => {
+                    const dx = d.shotLocationX - d.shotContactX;
+                    const dy = d.shotLocationY - d.shotContactY;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    return xScale(d.shotLocationX + fixedLength * dx / len);
+                })
+                .attr("y2", d => {
+                    const dx = d.shotLocationX - d.shotContactX;
+                    const dy = d.shotLocationY - d.shotContactY;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    return yScale(d.shotLocationY + fixedLength * dy / len);
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", 4);
+
+            svg.selectAll(".trajectory-line")
+                .data(data)
+                .enter()
+                .append("line")
+                .attr("class", "trajectory-line")
+                .attr("x1", d => xScale(d.shotLocationX))
+                .attr("y1", d => yScale(d.shotLocationY))
+                .attr("x2", d => {
+                    const dx = d.shotLocationX - d.shotContactX;
+                    const dy = d.shotLocationY - d.shotContactY;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    return xScale(d.shotLocationX + fixedLength * dx / len);
+                })
+                .attr("y2", d => {
+                    const dx = d.shotLocationX - d.shotContactX;
+                    const dy = d.shotLocationY - d.shotContactY;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    return yScale(d.shotLocationY + fixedLength * dy / len);
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", 2)
+                .attr("marker-end", "url(#arrowhead)");
+
+            // Landing points
+            //the below segment had three points missing
+            /*svg.selectAll("circle")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("cx", d => xScale(d.shotLocationX))
+                .attr("cy", d => yScale(d.shotLocationY))
+                .attr("r", 5)
+                .attr("stroke", "black")
+                .attr("stroke-width", 0.5)
+                .attr("fill", d => {
+                    if (d.isError) return "grey";
+                    if (d.pointWonBy === d.shotHitBy) return "#00cc00";
+                    return "red";
+                })*/
+               const circles = svg.selectAll(".landing-point").data(data);
+
+               circles.enter()
+                .append("circle")
+                .attr("class", "landing-point")
+                .merge(circles)  // ensures all points are drawn/updated
+                .attr("cx", d => xScale(d.shotLocationX))
+                .attr("cy", d => yScale(d.shotLocationY))
+                .attr("r", 5)
+                .attr("stroke", "black")
+                .attr("stroke-width", 0.5)
+                .attr("fill", d => {
+                    if (d.isError) return "grey";
+                    if (d.pointWonBy === d.shotHitBy) return "#00cc00";
+                    return "red";
+                })
+                .on("mouseover", function(event, d) {
+                    const totalSeconds = Math.floor(d.pointStartTime / 1000);
+                    const h = Math.floor(totalSeconds / 3600);
+                    const m = Math.floor((totalSeconds % 3600) / 60);
+                    const s = totalSeconds % 60;
+                    const formatted = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+                    tooltip.transition().duration(200).style("opacity", 0.9);
+                    tooltip.html(`pointStartTime: ${d.pointStartTime}<br>Timestamp: ${formatted}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 20) + "px");
+                })
+                .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+
+        });
+        // Legend (clean style from return chart, using slice logic)
+        const legendY = yScale(-135);  // Adjust vertically as needed
+        const legendX = width / 2 - 280;
+        const legendGroup = svg.append("g");
+
+        legendGroup.append("rect")
+            .attr("x", legendX + 110)
+            .attr("y", legendY - 22.5)
+            .attr("width", 350)
+            .attr("height", 35)
+            .attr("rx", 15)
+            .attr("ry", 15)
+            .attr("fill", "none")
+            .attr("stroke", "white")
+            .attr("stroke-width", 2);
+
+        // Win circle
+        legendGroup.append("circle")
+            .attr("cx", legendX + 145)
+            .attr("cy", legendY - 5)
+            .attr("r", 5)
+            .attr("fill", "#00cc00")
+            .attr("stroke", "black");
+
+        legendGroup.append("text")
+            .attr("x", legendX + 155)
+            .attr("y", legendY)
+            .attr("text-anchor", "start")
+            .attr("fill", "white")
+            .style("font-family", "'DM Sans', sans-serif")
+            .text("- Won Point    ");
+
+        // Loss circle
+        legendGroup.append("circle")
+            .attr("cx", legendX + 250)
+            .attr("cy", legendY - 5)
+            .attr("r", 5)
+            .attr("fill", "red")
+            .attr("stroke", "black");
+
+        legendGroup.append("text")
+            .attr("x", legendX + 260)
+            .attr("y", legendY)
+            .attr("text-anchor", "start")
+            .attr("fill", "white")
+            .style("font-family", "'DM Sans', sans-serif")
+            .text("- Lost Point  ");
+        // Error circle
+        legendGroup.append("circle")
+            .attr("cx", legendX + 355)
+            .attr("cy", legendY - 5)
+            .attr("r", 5)
+            .attr("fill", "grey")
+            .attr("stroke", "black");
+
+        legendGroup.append("text")
+            .attr("x", legendX + 365)
+            .attr("y", legendY)
+            .attr("text-anchor", "start")
+            .attr("fill", "white")
+            .style("font-family", "'DM Sans', sans-serif")
+            .text("- Out/Net");
+
+    </script>
+</body>
+</html>
